@@ -1,26 +1,27 @@
-FROM php:7.3.11-fpm
+FROM php:7.4-fpm-alpine
 
-RUN apt-get update
-
-RUN apt-get install -y \
-        cron \
+RUN apk add --update --no-cache \
+        curl \
+        curl-dev \
+        dcron \
         git \
-        libc-client-dev \
-        libcurl3-dev \
-        libfreetype6-dev \
-        libjpeg62-turbo-dev \
-        libkrb5-dev \
-        libpq-dev \
+        icu-dev \
+        imap-dev \
+        freetype-dev \
+        libjpeg-turbo-dev \
+        krb5-dev \
+        libpq \
         libpng-dev \
-        libssl-dev \
+        libressl-dev \
         libxml2-dev \
         libzip-dev \
+        oniguruma-dev \
+        rsync \
         tzdata \
 
     && docker-php-ext-configure gd \
-        --with-freetype-dir=/usr/include/ \
-        --with-jpeg-dir=/usr/include/ \
-        --with-png-dir=/usr/include/ \
+        --with-freetype=/usr/include/ \
+        --with-jpeg=/usr/include/ \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-configure mysqli -with-mysqli=mysqlnd \
     && docker-php-ext-configure pdo_mysql -with-pdo-mysql=mysqlnd \
@@ -38,11 +39,7 @@ RUN apt-get install -y \
         xmlrpc \
         zip
 
-RUN pecl install xdebug-2.8.0 \
-    && docker-php-ext-enable xdebug
-
-RUN curl https://getcomposer.org/composer.phar --output /usr/bin/composer
-RUN chmod +x /usr/bin/composer
+COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
 
 RUN cp /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 RUN echo "America/Sao_Paulo" >  /etc/timezone
@@ -51,8 +48,8 @@ COPY config/php.ini /usr/local/etc/php/conf.d/
 
 COPY config/crontab /etc/cron.d/app-cron
 RUN chmod 0644 /etc/cron.d/app-cron
-RUN crontab /etc/cron.d/app-cron
+RUN crond -c /etc/cron.d
 
 WORKDIR /app
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["bash", "/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.sh"]
