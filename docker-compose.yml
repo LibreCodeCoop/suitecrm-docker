@@ -8,7 +8,7 @@ services:
     depends_on:
       - php7
     volumes:
-      - ./SuiteCRM:/app
+      - ./volumes/suitecrm:/app
       - ./.docker/nginx/conf/nginx.conf:/etc/nginx/conf.d/default.conf
   php7:
     build: ./.docker/php7
