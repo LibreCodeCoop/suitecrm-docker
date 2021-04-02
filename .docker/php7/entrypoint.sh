@@ -1,5 +1,5 @@
 #!/bin/sh
-if [ ! -f "LICENSE.txt" ]; then
+if [ ! -f "SuiteCRM/LICENSE.txt" ]; then
     export COMPOSER_ALLOW_SUPERUSER=1
     composer global require hirak/prestissimo
 
