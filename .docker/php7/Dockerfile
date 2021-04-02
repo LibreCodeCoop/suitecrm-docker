@@ -41,9 +41,6 @@ RUN apk add --update --no-cache \
 
 COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
 
-RUN cp /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
-RUN echo "America/Sao_Paulo" >  /etc/timezone
-
 COPY config/php.ini /usr/local/etc/php/conf.d/
 
 COPY config/crontab /etc/cron.d/app-cron

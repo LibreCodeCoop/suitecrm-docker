@@ -20,6 +20,7 @@ services:
       - db
     environment:
       - SUITECRM_VERSION=7.11.18
+      - TZ=America/Sao_Paulo
     links:
       - db
   db:
