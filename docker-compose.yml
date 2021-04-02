@@ -18,6 +18,8 @@ services:
       - ~/.composer:/root/.composer
     depends_on:
       - db
+    environments:
+      - SUITECRM_VERSION=7.10.29
     links:
       - db
   db:
