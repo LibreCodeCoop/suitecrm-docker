@@ -19,7 +19,7 @@ services:
     depends_on:
       - db
     environments:
-      - SUITECRM_VERSION=7.10.29
+      - SUITECRM_VERSION=7.11.18
     links:
       - db
   db:
