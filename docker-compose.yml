@@ -20,7 +20,8 @@ services:
       - db
     environment:
       - SUITECRM_VERSION=v7.11.18
-      - TZ=America/Sao_Paulo
+      #- XDEBUG_CONFIG=client_host=172.17.0.1 client_port=9000 start_with_request=yes
+      #- TZ=America/Sao_Paulo
     links:
       - db
   db:

@@ -47,6 +47,13 @@ COPY config/crontab /etc/cron.d/app-cron
 RUN chmod 0644 /etc/cron.d/app-cron
 RUN crond -c /etc/cron.d
 
+#RUN apk add \
+#        autoconf \
+#        g++ \
+#        make \
+#    && pecl install xdebug-3.0.3 \
+#    && docker-php-ext-enable xdebug
+
 WORKDIR /app
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.sh"]
