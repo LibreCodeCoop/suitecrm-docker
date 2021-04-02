@@ -1,6 +1,7 @@
 #!/bin/sh
-if [ ! -d "SuiteCRM" ]; then
+if [ ! -f "LICENSE.txt" ]; then
     export COMPOSER_ALLOW_SUPERUSER=1
+    composer global require hirak/prestissimo
 
     git clone --progress -b "${SUITECRM_VERSION}" --single-branch --depth 1 https://github.com/salesagility/SuiteCRM /tmp/suitecrm
     rsync -r /tmp/suitecrm/ SuiteCRM

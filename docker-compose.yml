@@ -14,7 +14,7 @@ services:
     build: ./.docker/php7
     restart: always
     volumes:
-      - ./volumes/suitecrm:/app
+      - ./volumes/suitecrm:/app/SuiteCRM
       - ~/.composer:/root/.composer
     depends_on:
       - db
