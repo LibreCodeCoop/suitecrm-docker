@@ -1,3 +1,2 @@
-SuiteCRM
-.docker/volumes
 .env
+/volumes/
