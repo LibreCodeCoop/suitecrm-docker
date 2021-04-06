@@ -35,3 +35,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=root
+  #mailhog:
+  #  image: blueimp/mailhog
+  #  ports:
+  #    - 8025:8025
