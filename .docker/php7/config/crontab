@@ -1,1 +1,0 @@
-*    *    *    *    *     cd /app/SuiteCRM; php -f cron.php > /dev/null 2>&1

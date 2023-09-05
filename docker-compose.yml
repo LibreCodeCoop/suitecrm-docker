@@ -1,41 +1,28 @@
-version: '3.3'
 services:
-  nginx:
-    image: nginx:latest
+  php:
+    build: ./.docker/php
     restart: always
     ports:
       - 80:80
-    depends_on:
-      - php7
     volumes:
-      - ./volumes/suitecrm:/app
-      - ./.docker/nginx/conf/nginx.conf:/etc/nginx/conf.d/default.conf
-  php7:
-    build: ./.docker/php7
-    restart: always
-    volumes:
-      - ./volumes/suitecrm:/app
+      - ./volumes/suitecrm:/var/www/html
       - ~/.composer:/root/.composer
     depends_on:
-      - db
+      - mysql
     environment:
-      - SUITECRM_VERSION=v7.11.18
-      #- XDEBUG_CONFIG=client_host=172.17.0.1 client_port=9000 start_with_request=yes
-      #- TZ=America/Sao_Paulo
+      - VERSION_SUITECRM=${VERSION_SUITECRM:-v8.4.0}
+      - XDEBUG_CONFIG=client_host=172.17.0.1 client_port=9003 start_with_request=yes
+      - TZ=America/Sao_Paulo
     links:
-      - db
-  db:
-    image: mariadb
+      - mysql
+  mysql:
+    image: mysql
+    restart: unless-stopped
     ports:
-      - "3306:3306"
+      - 3306:3306
     volumes:
-      -  ./.docker/mysql/conf:/etc/mysql/conf.d
       - ./volumes/mysql/dump:/docker-entrypoint-initdb.d
       - ./volumes/mysql/data:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=root
-  #mailhog:
-  #  image: blueimp/mailhog
-  #  ports:
-  #    - 8025:8025
