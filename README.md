@@ -6,5 +6,5 @@ SuiteCRM with docker-compose
 clone this repository and run:
 
 ```
-docker-compose up -d
+docker compose up -d
 ```
