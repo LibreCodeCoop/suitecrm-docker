@@ -1,3 +1,7 @@
+networks:
+  mysql:
+    name: mysql
+
 services:
   php:
     build: ./.docker/php
@@ -13,7 +17,7 @@ services:
       - VERSION_SUITECRM=${VERSION_SUITECRM:-v8.8.0}
       - XDEBUG_CONFIG=client_host=172.17.0.1 client_port=9003 start_with_request=yes
       - TZ=America/Sao_Paulo
-    links:
+    networks:
       - mysql
   mysql:
     image: mysql
@@ -26,3 +30,5 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=root
+    networks:
+      - mysql
