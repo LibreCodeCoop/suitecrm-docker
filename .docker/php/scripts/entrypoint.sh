@@ -9,4 +9,29 @@ if [ ! -f "LICENSE.txt" ]; then
     chown -R www-data:www-data .
 fi
 
+# Fix SuiteCRM 8.4.0 bugs for PHP 8.3
+# Bug #1: Remove duplicate static variable in AOW_WorkFlow (line 644)
+if [ -f "public/legacy/modules/AOW_WorkFlow/aow_utils.php" ]; then
+    if grep -q "static \$sfh" public/legacy/modules/AOW_WorkFlow/aow_utils.php | grep -c "static \$sfh" | grep -q "2"; then
+        sed -i '644d' public/legacy/modules/AOW_WorkFlow/aow_utils.php
+        echo "Fixed: Removed duplicate static variable in AOW_WorkFlow/aow_utils.php"
+    fi
+fi
+
+# Bug #2: Remove duplicate static variable in InlineEditing (line 294)
+if [ -f "public/legacy/include/InlineEditing/InlineEditing.php" ]; then
+    if [ $(grep -c "static \$sfh" public/legacy/include/InlineEditing/InlineEditing.php) -eq 2 ]; then
+        sed -i '294d' public/legacy/include/InlineEditing/InlineEditing.php
+        echo "Fixed: Removed duplicate static variable in InlineEditing/InlineEditing.php"
+    fi
+fi
+
+# Bug #3: Fix incorrect RewriteBase in .htaccess
+if [ -f "public/legacy/.htaccess" ]; then
+    if grep -q "RewriteBase localhostlegacy/" public/legacy/.htaccess; then
+        sed -i 's|RewriteBase localhostlegacy/|RewriteBase /legacy/|' public/legacy/.htaccess
+        echo "Fixed: Corrected RewriteBase in public/legacy/.htaccess"
+    fi
+fi
+
 apache2-foreground
