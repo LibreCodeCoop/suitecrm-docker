@@ -81,10 +81,35 @@ fix_bug_3() {
     fi
 }
 
+unlock_installer() {
+    echo ""
+    echo "Checking installer lock status..."
+    if [ -z "$PREFIX" ]; then
+        if [ -f "public/legacy/config.php" ]; then
+            if grep -q "'installer_locked' => true" public/legacy/config.php 2>/dev/null; then
+                sed -i "s/'installer_locked' => true/'installer_locked' => false/" public/legacy/config.php
+                echo "  ✓ Unlocked installer"
+            else
+                echo "  ✓ Installer already unlocked"
+            fi
+        fi
+    else
+        if $PREFIX test -f public/legacy/config.php 2>/dev/null; then
+            if $PREFIX grep -q "'installer_locked' => true" public/legacy/config.php 2>/dev/null; then
+                $PREFIX sed -i "s/'installer_locked' => true/'installer_locked' => false/" public/legacy/config.php
+                echo "  ✓ Unlocked installer"
+            else
+                echo "  ✓ Installer already unlocked"
+            fi
+        fi
+    fi
+}
+
 # Apply all fixes
 fix_bug_1
 fix_bug_2
 fix_bug_3
+unlock_installer
 
 echo ""
 echo "=========================================="
@@ -94,5 +119,5 @@ echo ""
 echo "Next steps:"
 echo "1. Clear cache: docker compose exec php bash -c \"rm -rf cache/prod/* public/legacy/cache/*\""
 echo "2. Restart PHP: docker compose restart php"
-echo "3. Run installation if not done yet"
+echo "3. Run installation: docker compose exec php bin/console suitecrm:app:install -U root -P root -H mysql -Z 3306 -N root -u admin -p admin -S localhost -d no -W true"
 echo ""
