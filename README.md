@@ -295,6 +295,9 @@ GitHub Actions automatically builds and publishes the Docker image to `ghcr.io` 
 - Tag creation (v*)
 - Pull requests
 
+## Translations
+- https://crowdin.com/project/suitecrmtranslations
+
 ## License
 
 SuiteCRM is licensed under AGPLv3. See LICENSE.txt for details.
