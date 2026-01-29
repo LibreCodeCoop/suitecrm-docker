@@ -8,7 +8,7 @@ Docker-based development environment for SuiteCRM 8.x with PHP 8.3, Apache, and 
 
 1. Clone this repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/LibreCodeCoop/suitecrm-docker
 cd suitecrm-docker
 ```
 
