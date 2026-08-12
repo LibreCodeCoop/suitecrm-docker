@@ -231,9 +231,48 @@ nano .env
 Conteúdo:
 
 ```env
-VERSION_SUITECRM=v8.8.0
 TZ=America/Sao_Paulo
 XDEBUG_CONFIG=off
+```
+
+A versão padrão do SuiteCRM fica no arquivo `SUITECRM_VERSION` do repositório.
+A imagem publicada usa sempre a tag `suite-crm:latest`. Para atualizar apenas a
+imagem do serviço PHP:
+
+```bash
+docker compose pull php
+docker compose up -d php
+```
+
+Isso atualiza a imagem PHP e define a versão usada em instalações novas. Em uma
+instalação já persistida em `volumes/suitecrm`, faça backup e execute também o
+upgrade da aplicação. O comando `suitecrm:app:upgrade-finalize` faz parte do
+procedimento atual de upgrade do SuiteCRM e não deve ser omitido.
+
+O procedimento abaixo usa a mesma versão centralizada no repositório, sem
+repetir o número manualmente em cada comando:
+
+```bash
+suitecrm_version="$(tr -d '[:space:]' < SUITECRM_VERSION)"
+suitecrm_version_number="${suitecrm_version#v}"
+
+mkdir -p volumes/suitecrm/logs/prod
+curl --fail --location \
+  "https://github.com/SuiteCRM/SuiteCRM-Core/releases/download/${suitecrm_version}/SuiteCRM-${suitecrm_version_number}.zip" \
+  --output "volumes/suitecrm/logs/prod/${suitecrm_version_number}.zip"
+
+docker compose exec php mkdir -p tmp/package/upgrade
+docker compose exec php mv \
+  "logs/prod/${suitecrm_version_number}.zip" \
+  "tmp/package/upgrade/${suitecrm_version_number}.zip"
+docker compose exec php php bin/console suitecrm:app:upgrade \
+  -t "${suitecrm_version_number}"
+docker compose exec php php bin/console suitecrm:app:upgrade-finalize \
+  -m merge -t "${suitecrm_version_number}"
+docker compose exec --user root php rm \
+  "tmp/package/upgrade/${suitecrm_version_number}.zip"
+docker compose exec --user root php chown -R www-data:www-data .
+docker compose restart php
 ```
 
 ### Backup Automático

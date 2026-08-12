@@ -4,7 +4,10 @@ networks:
 
 services:
   php:
-    build: ./.docker/php
+    image: ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
     restart: always
     ports:
       - 80:80
@@ -14,7 +17,6 @@ services:
     depends_on:
       - mysql
     environment:
-      - VERSION_SUITECRM=${VERSION_SUITECRM:-v8.9.2}
       - XDEBUG_CONFIG=client_host=172.17.0.1 client_port=9003 start_with_request=yes
       - TZ=America/Sao_Paulo
     networks:

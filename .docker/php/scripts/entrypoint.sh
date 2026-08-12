@@ -3,15 +3,17 @@ set -e
 
 echo "[ENTRYPOINT] Starting SuiteCRM container..."
 
-# Clone SuiteCRM repository, if needed
+SUITECRM_VERSION="$(tr -d '[:space:]' < /etc/suitecrm-version)"
+
+# Install the SuiteCRM package baked into the image, if needed
 if [ ! -f "LICENSE.txt" ]; then
-    echo "[ENTRYPOINT] Downloading SuiteCRM..."
-    curl -L https://suitecrm.com/download/142/suite84/562972/suitecrm-8-4-0.zip|busybox unzip -
+    echo "[ENTRYPOINT] Installing SuiteCRM ${SUITECRM_VERSION} from the image..."
+    cp -a /opt/suitecrm/. .
     find . -type d -not -perm 2755 -exec chmod 2755 {} \;
     find . -type f -not -perm 0644 -exec chmod 0644 {} \;
     chmod +x bin/console
     chown -R www-data:www-data .
-    echo "[ENTRYPOINT] SuiteCRM download complete"
+    echo "[ENTRYPOINT] SuiteCRM ${SUITECRM_VERSION} installation complete"
 else
     echo "[ENTRYPOINT] SuiteCRM files already exist"
 fi

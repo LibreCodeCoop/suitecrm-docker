@@ -2,6 +2,12 @@
 
 Docker-based development environment for SuiteCRM 8.x with PHP 8.3, Apache, and MySQL.
 
+The SuiteCRM release packaged by the image is defined in `SUITECRM_VERSION`. The
+current release is `v8.10.2`. Change only that file when preparing a new image.
+The publishing workflow always pushes the resulting image as
+`ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest`; the SuiteCRM release is
+kept in the OCI image metadata instead of being used as a Docker tag.
+
 ## Quick Start
 
 ### Option 1: Automated Installation (Recommended)
@@ -166,7 +172,6 @@ docker compose exec php bin/console suitecrm:app:install \
 
 Create a `.env` file or set in `docker-compose.yml`:
 
-- `VERSION_SUITECRM`: SuiteCRM version to download (default: v8.8.0)
 - `XDEBUG_CONFIG`: Xdebug configuration
 - `TZ`: Timezone (default: America/Sao_Paulo)
 

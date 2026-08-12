@@ -2,6 +2,7 @@ FROM php:8.3-apache
 
 RUN apt-get update \
     && apt-get install -y \
+        curl \
         unzip \
         busybox-static
     #     # cron
@@ -24,17 +25,26 @@ RUN chmod uga+x /usr/local/bin/install-php-extensions && sync \
     xdebug \
     zip
 
-COPY config/php.ini /usr/local/etc/php/conf.d/
+COPY .docker/php/config/php.ini /usr/local/etc/php/conf.d/
 
 # COPY config/crontab /etc/cron.d/app-cron
 # RUN chmod 0644 /etc/cron.d/app-cron
 # RUN crond -c /etc/cron.d
 
 RUN a2enmod rewrite
-COPY config/apache/httpd.conf /etc/apache2/sites-enabled/000-default.conf
+COPY .docker/php/config/apache/httpd.conf /etc/apache2/sites-enabled/000-default.conf
 
-COPY config/php.ini /usr/local/etc/php/conf.d/
-COPY scripts/entrypoint.sh /var/www/scripts/
+COPY .docker/php/scripts/entrypoint.sh /var/www/scripts/
+COPY SUITECRM_VERSION /etc/suitecrm-version
+
+RUN suitecrm_version="$(tr -d '[:space:]' < /etc/suitecrm-version)" \
+    && suitecrm_version_number="${suitecrm_version#v}" \
+    && mkdir -p /opt/suitecrm \
+    && curl --fail --location \
+        "https://github.com/SuiteCRM/SuiteCRM-Core/releases/download/v${suitecrm_version_number}/SuiteCRM-${suitecrm_version_number}.zip" \
+        --output /tmp/suitecrm.zip \
+    && busybox unzip /tmp/suitecrm.zip -d /opt/suitecrm \
+    && rm /tmp/suitecrm.zip
 
 WORKDIR /var/www/html
 
