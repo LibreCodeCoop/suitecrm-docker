@@ -5,41 +5,24 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Automatic bug fixes in entrypoint script for SuiteCRM 8.4.0 PHP 8.3 compatibility
-- `install.sh` script for automated installation with bug fix verification
-- Comprehensive documentation in README.md
-- WARP.md file for AI-assisted development
-- Manual bug fix instructions for existing installations
-
-### Fixed
-- **Bug #1**: Duplicate static variable `$sfh` in `public/legacy/modules/AOW_WorkFlow/aow_utils.php` (line 644)
-  - Symptom: Database failure error on initial load
-  - Fix: Remove line 644 containing duplicate declaration
-  
-- **Bug #2**: Duplicate static variable `$sfh` in `public/legacy/include/InlineEditing/InlineEditing.php` (line 294)
-  - Symptom: "Error while fetching data" when trying to login or access GraphQL API
-  - Fix: Remove line 294 containing duplicate declaration
-  
-- **Bug #3**: Incorrect RewriteBase in `public/legacy/.htaccess`
-  - Symptom: 500 Internal Server Error when accessing legacy pages
-  - Issue: RewriteBase set to `localhostlegacy/` instead of `/legacy/`
-  - Fix: Correct the RewriteBase path to `/legacy/`
+- Version source of truth in `SUITECRM_VERSION`.
+- Safe upgrade script with mandatory backup confirmation and post-upgrade checks.
+- Optional Messenger worker and scheduler services under the `background` profile.
+- Generic deployment and upgrade documentation without infrastructure credentials.
+- Compose and shell syntax validation in CI.
 
 ### Changed
-- Updated entrypoint script to automatically apply all bug fixes on container startup
-- Enhanced README with detailed installation instructions and troubleshooting guide
-- Improved documentation structure with Quick Start options
+- SuiteCRM target version updated to 8.10.2.
+- Published image now uses the stable `suite-crm:latest` name; the application
+  version remains available as an OCI label.
+- MySQL development image updated to 8.4 and its port is no longer exposed.
+- Installation is interactive and no longer embeds example credentials.
+- Entrypoint only initializes empty volumes; persisted installations must use the
+  documented application upgrade flow.
 
-### Technical Details
-
-All bug fixes are:
-- **Idempotent**: Safe to run multiple times without breaking already-fixed installations
-- **Automatic**: Applied during container startup via entrypoint script
-- **Verified**: The entrypoint script detects bugs before applying fixes
-
-The fixes address PHP 8.3 compatibility issues in SuiteCRM 8.4.0 that cause:
-1. Fatal compile errors due to duplicate static variable declarations
-2. Apache configuration errors due to malformed RewriteBase directives
+### Removed
+- Runtime patches that were specific to SuiteCRM 8.4.0.
+- Documentation containing deployment-specific infrastructure details.
 
 ## [1.0.0] - Initial Release
 

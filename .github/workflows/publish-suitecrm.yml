@@ -37,6 +37,14 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Validate scripts and Compose configuration
+        env:
+          MYSQL_ROOT_PASSWORD: validation-only
+          MYSQL_PASSWORD: validation-only
+        run: |
+          bash -n install.sh scripts/upgrade-suitecrm.sh .docker/php/scripts/entrypoint.sh
+          docker compose config --quiet
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

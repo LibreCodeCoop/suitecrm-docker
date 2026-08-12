@@ -1,76 +1,45 @@
 #!/bin/bash
-set -e
+set -Eeuo pipefail
 
-echo "==================================="
-echo "SuiteCRM 8.4.0 Docker Installation"
-echo "==================================="
-echo ""
+cd "$(dirname "$0")"
 
-# Start containers
-echo "Starting Docker containers..."
-docker compose up -d
-
-# Wait for services to be ready
-echo "Waiting for services to start..."
-sleep 10
-
-# Check if SuiteCRM is downloaded
-echo "Checking SuiteCRM installation..."
-docker compose exec php bash -c "[ -f LICENSE.txt ] && echo 'SuiteCRM files found' || echo 'Waiting for download...'"
-
-# Wait for download to complete if needed
-sleep 5
-
-# Check if bugs were fixed
-echo ""
-echo "Checking bug fixes..."
-docker compose exec php bash -c '
-if [ -f "public/legacy/modules/AOW_WorkFlow/aow_utils.php" ]; then
-    count=$(grep -c "static \$sfh" public/legacy/modules/AOW_WorkFlow/aow_utils.php)
-    if [ $count -eq 1 ]; then
-        echo "✓ Bug #1 fixed: AOW_WorkFlow has only one static \$sfh declaration"
-    else
-        echo "✗ Bug #1 NOT fixed: AOW_WorkFlow has $count static variable declarations"
-    fi
+if [[ ! -f .env ]]; then
+    echo "Missing .env. Copy .env.example to .env and configure the required passwords." >&2
+    exit 1
 fi
 
-if [ -f "public/legacy/include/InlineEditing/InlineEditing.php" ]; then
-    count=$(grep -c "static \$sfh" public/legacy/include/InlineEditing/InlineEditing.php)
-    if [ $count -eq 1 ]; then
-        echo "✓ Bug #2 fixed: InlineEditing has only one static \$sfh declaration"
-    else
-        echo "✗ Bug #2 NOT fixed: InlineEditing has $count static variable declarations"
+for variable in MYSQL_ROOT_PASSWORD MYSQL_PASSWORD; do
+    value="$(sed -n "s/^${variable}=//p" .env | tail -n 1)"
+    if [[ -z "$value" ]]; then
+        echo "${variable} must be configured in .env." >&2
+        exit 1
     fi
+done
+
+echo "Starting the database and SuiteCRM web service..."
+docker compose up -d mysql php
+
+echo "Waiting for the SuiteCRM files..."
+for _ in {1..60}; do
+    if docker compose exec -T php test -x bin/console 2>/dev/null; then
+        break
+    fi
+    sleep 2
+done
+
+if ! docker compose exec -T php test -x bin/console; then
+    echo "SuiteCRM did not become ready. Check: docker compose logs php" >&2
+    exit 1
 fi
 
-if [ -f "public/legacy/.htaccess" ]; then
-    if grep -q "RewriteBase /legacy/" public/legacy/.htaccess; then
-        echo "✓ Bug #3 fixed: RewriteBase is correct"
-    else
-        echo "✗ Bug #3 NOT fixed: RewriteBase is still incorrect"
-    fi
-fi'
+echo
+echo "The SuiteCRM installer will ask for database and administrator credentials."
+echo "Values entered here are not stored by this repository."
+docker compose exec php php bin/console suitecrm:app:install
 
-echo ""
-echo "==================================="
-echo "Next Steps:"
-echo "==================================="
-echo ""
-echo "Complete the installation by running:"
-echo ""
-echo "  docker compose exec php bin/console suitecrm:app:install \\"
-echo "    -U root \\"
-echo "    -P root \\"
-echo "    -H mysql \\"
-echo "    -Z 3306 \\"
-echo "    -N root \\"
-echo "    -u admin \\"
-echo "    -p admin \\"
-echo "    -S localhost \\"
-echo "    -d no \\"
-echo "    -W true"
-echo ""
-echo "Then access SuiteCRM at http://localhost"
-echo "  Username: admin"
-echo "  Password: admin"
-echo ""
+docker compose --profile background up -d
+
+echo
+echo "Installation complete. Verify the application, scheduler and Messenger worker:"
+echo "  docker compose --profile background ps"
+echo "  docker compose exec php php bin/console app:version:status"

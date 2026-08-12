@@ -1,4 +1,8 @@
 .vscode
 .env
+.env.local
 /volumes/
 /graphify-out/
+/backups/
+*.sql
+*.sql.gz
