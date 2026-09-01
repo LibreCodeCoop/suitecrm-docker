@@ -18,4 +18,10 @@ else
     echo "[ENTRYPOINT] Existing SuiteCRM files detected; application upgrade is not automatic"
 fi
 
+EMAILS_HEADER_JS="/var/www/html/public/legacy/modules/Emails/include/ListView/ListViewHeader.js"
+if [ -f "$EMAILS_HEADER_JS" ] && grep -q "jQueryBtnEmailsCurrentFolder.remove()" "$EMAILS_HEADER_JS"; then
+    echo "[ENTRYPOINT] Patching Emails folder button handling"
+    sed -i '/jQueryBtnEmailsCurrentFolder.remove()/d' "$EMAILS_HEADER_JS"
+fi
+
 exec "$@"
