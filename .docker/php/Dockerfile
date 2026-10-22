@@ -1,4 +1,6 @@
-FROM php:8.3-apache
+FROM php:8.3.36-apache@sha256:756c2884677bedea30afaa95811b42cd3ff251203291c5820c1ad209e86c9fb4
+
+
 
 RUN apt-get update \
     && apt-get install -y \
