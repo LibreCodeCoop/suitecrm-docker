@@ -88,6 +88,23 @@ jobs:
           installed="$(docker run --rm --entrypoint cat suitecrm-ci:verify /etc/suitecrm-version)"
           test "$installed" = "$expected"
           docker run --rm --entrypoint test suitecrm-ci:verify -f /opt/suitecrm/VERSION
+          # Exercise the real entrypoint only in a disposable container.
+          # This must never use a bind mount or any production volume.
+          docker run --rm --entrypoint bash suitecrm-ci:verify -ec '
+            scratch="$(mktemp -d)"
+            cd "$scratch"
+            /var/www/scripts/entrypoint.sh true
+            test -f VERSION
+            test -x bin/console
+            test "$(stat -c %U VERSION)" = www-data
+          '
+          docker run --rm --entrypoint bash suitecrm-ci:verify -ec '
+            scratch="$(mktemp -d)"
+            cd "$scratch"
+            touch LICENSE.txt
+            /var/www/scripts/entrypoint.sh true
+            test ! -e VERSION
+          '
 
       - name: Log in to Container registry
         if: github.event_name != 'pull_request'
