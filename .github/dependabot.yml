@@ -4,3 +4,17 @@ updates:
     directory: /.docker/php
     schedule:
       interval: daily
+    ignore:
+      # Patch updates remain automatic; PHP series changes require an
+      # explicit compatibility review against SuiteCRM's support matrix.
+      - dependency-name: php
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

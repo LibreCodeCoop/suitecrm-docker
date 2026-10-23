@@ -17,7 +17,8 @@ for variable in MYSQL_ROOT_PASSWORD MYSQL_PASSWORD; do
 done
 
 echo "Starting the database and SuiteCRM web service..."
-docker compose up -d mysql php
+docker compose --profile dev-db up -d --wait mysql
+docker compose up -d php
 
 echo "Waiting for the SuiteCRM files..."
 for _ in {1..60}; do
@@ -35,11 +36,11 @@ fi
 echo
 echo "The SuiteCRM installer will ask for database and administrator credentials."
 echo "Values entered here are not stored by this repository."
-docker compose exec php php bin/console suitecrm:app:install
+docker compose exec -u www-data php php bin/console suitecrm:app:install
 
-docker compose --profile background up -d
+docker compose --profile background up -d messenger scheduler
 
 echo
 echo "Installation complete. Verify the application, scheduler and Messenger worker:"
 echo "  docker compose --profile background ps"
-echo "  docker compose exec php php bin/console app:version:status"
+echo "  docker compose exec -u www-data php php bin/console suitecrm:version"

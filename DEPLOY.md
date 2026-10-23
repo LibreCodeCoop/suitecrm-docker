@@ -1,141 +1,119 @@
-# Deploy do SuiteCRM
+# Deploy do SuiteCRM 8
 
-Este documento contém somente exemplos genéricos. Informações da infraestrutura
-de produção, incluindo hostnames, domínios, e-mails, nomes de banco, usuários,
-credenciais e caminhos de backup, devem permanecer em documentação privada.
+Este documento é genérico. Não versione endereços de produção, credenciais,
+backups, chaves nem definições de rede exclusivas da infraestrutura.
 
 ## Pré-requisitos
 
-- Docker Engine e Docker Compose;
-- proxy HTTPS ou publicação controlada da porta HTTP;
-- banco MySQL/MariaDB compatível;
-- backup independente e testado para banco e arquivos.
+- Docker Compose; proxy HTTPS existente; banco compatível.
+- Diretório persistente em `./volumes/suitecrm:/var/www/html`.
+- Backup do banco **e** dos arquivos, com restauração testada.
+- Rede e credenciais definidas localmente. Veja a
+  [matriz oficial](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/).
 
-Consulte a [matriz oficial](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/)
-antes de mudar SuiteCRM, PHP ou banco.
+## Imagem e banco
 
-## Imagem
+O Compose usa `ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest`.
+Seu build é feito no GitHub Actions, com smoke checks antes de publicar.
+A versão está em `SUITECRM_VERSION` e no label OCI.
 
-O repositório publica a imagem PHP como:
+O serviço MySQL deste repositório pertence ao profile `dev-db`:
+**não o habilite em um servidor que já tenha um banco externo**.
+O `php` não depende mais do serviço local `mysql` e pode usar a rede
+configurada em override privado.
 
-```text
-ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
-```
-
-O número da versão fica em `SUITECRM_VERSION` e no label OCI. A ausência de uma
-tag versionada é intencional: atualizações usam sempre o mesmo nome de imagem.
-
-## Configuração
-
-Para desenvolvimento:
-
-```bash
-cp .env.example .env
-# Preencha os valores obrigatórios sem enviá-los ao Git.
-docker compose up -d mysql php
-```
-
-O Compose não publica a porta do banco. Se acesso externo for indispensável em
-desenvolvimento, crie um override local limitado a `127.0.0.1`.
-
-## Produção com banco externo
-
-Não implante um novo banco quando já existir um banco gerenciado ou compartilhado.
-Crie um override privado que:
-
-- mantenha apenas `php`, `messenger` e `scheduler`;
-- conecte esses serviços à rede externa apropriada;
-- preserve `./volumes/suitecrm:/var/www/html`;
-- injete configurações por `.env`, secrets do orquestrador ou outro cofre;
-- não contenha valores reais no repositório.
-
-Modelo reduzido, sem dados operacionais:
+Exemplo de override, sem dados reais:
 
 ```yaml
 services:
   php:
-    image: ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
-    volumes:
-      - ./volumes/suitecrm:/var/www/html
-    networks:
-      - database
-
+    networks: [database]
+  messenger:
+    networks: [database]
+  scheduler:
+    networks: [database]
 networks:
   database:
     external: true
     name: ${DATABASE_NETWORK:?configure DATABASE_NETWORK locally}
 ```
 
-Os serviços de background devem receber o mesmo volume e a mesma rede, sem
-incluir um serviço de banco no override de produção.
+O override precisa preservar os vínculos e usar apenas os recursos existentes
+na instalação real. A rede `mysql` padrão pode permanecer conectada, mas
+não crie nem substitua bases por acidente.
 
-## Instalação
-
-Use o instalador interativo para evitar credenciais padrão ou exemplos que
-acabem reutilizados em produção:
+## Configuração inicial de desenvolvimento
 
 ```bash
-docker compose exec php php bin/console suitecrm:app:install
-docker compose --profile background up -d messenger scheduler
+cp .env.example .env
+# Configure MYSQL_ROOT_PASSWORD e MYSQL_PASSWORD.
+./install.sh
 ```
 
-Depois da instalação:
+O `install.sh` inicia o banco local via profile `dev-db`, aguarda o
+healthcheck e depois inicia `php`, `messenger` e `scheduler`.
+Não use esse instalador contra produção já existente.
 
-- configure HTTPS;
-- instale e selecione a tradução necessária;
-- configure moeda e e-mail;
-- confirme a execução do scheduler;
-- confirme o Messenger Worker;
-- faça um backup completo e teste a restauração.
+## Implantar os processos de background em produção
 
-## Atualizações
-
-Para atualizar somente o runtime:
+Na instalação existente, revise primeiro o Compose/override real e a origem do
+volume. **Não atualize o app persistido nem execute migrations nesta etapa.**
 
 ```bash
-docker compose pull php messenger scheduler
-docker compose --profile background up -d --no-deps php messenger scheduler
-```
-
-Isso não atualiza os arquivos existentes em `volumes/suitecrm`. Para atualizar a
-aplicação e o schema, siga [UPGRADE.md](UPGRADE.md).
-
-## Operação
-
-```bash
+docker compose --profile background config --quiet
+docker compose --profile background up -d --no-deps messenger
 docker compose --profile background ps
-docker compose logs -f php messenger scheduler
-docker compose exec php php bin/console app:version:status
-docker compose exec php php bin/console cache:clear
+docker compose --profile background logs --tail=100 messenger
 ```
 
-O scheduler usa `public/legacy/cron.php`. O Messenger consome `internal-async`
-como `www-data`, conforme recomendado para SuiteCRM 8.10+.
+O serviço `messenger` executa, como `www-data`:
 
-## Backups
+```text
+php bin/console messenger:consume internal-async --time-limit=3600 --memory-limit=256M
+```
 
-Não há script de dump com credenciais neste repositório porque produção pode
-usar banco local, externo ou gerenciado. A solução adotada deve:
+O serviço `scheduler` executa
+`php bin/console schedulers:run --no-interaction` a cada 60 segundos.
+Ambos usam o **mesmo volume** e a mesma imagem do web. Evite workers
+concorrentes sem validar a idempotência das tarefas.
 
-1. gerar um dump consistente somente do banco da aplicação;
-2. criar snapshot de `volumes/suitecrm` no mesmo ponto lógico;
-3. registrar sucesso ou falha;
-4. aplicar retenção fora do diretório versionado;
-5. testar periodicamente uma restauração completa.
+### Migração do cron antigo
 
-Antes de um upgrade, confirme que os dois artefatos existem e são legíveis. O
-script de upgrade pode chamar a integração local através de `BACKUP_COMMAND`.
+1. Examine o agendamento existente do host e confirme se é usado por outros
+   serviços; não substitua o crontab completo.
+2. Valide a configuração, permissões, imagem e rede do novo serviço ainda sem
+   iniciá-lo, e confirme que o worker Messenger está funcionando.
+3. Em uma janela de mudança, desative **somente** a entrada antiga do SuiteCRM
+   e então inicie `docker compose --profile background up -d --no-deps scheduler`.
+4. Confira logs, tarefas no painel **Admin > Schedulers**, status e horários.
+   Se o serviço novo falhar, pare-o e restaure a entrada antiga do cron,
+   nunca mantendo os dois ativos em paralelo.
 
-## Verificação e rollback
+A documentação oficial do SuiteCRM 8.9+ recomenda
+[bin/console schedulers:run por minuto](https://docs.suitecrm.com/8.x/admin/administration-panel/schedulers/).
+O Messenger do 8.10+ deve executar permanentemente. A rotina de
+`legacy/cron.php` pode funcionar para tarefas antigas, mas não deve ser
+a única estratégia documentada para novas instalações.
 
-Após mudanças:
+## Verificações e atualizações
 
 ```bash
-docker compose exec php php bin/console app:version:status
-docker compose exec php php bin/console doctrine:migrations:status --no-interaction
-docker compose logs --since=10m php
+docker compose exec -u www-data php php bin/console suitecrm:version
+docker compose exec -u www-data php php bin/console doctrine:migrations:status --no-interaction
+docker compose --profile background exec messenger php bin/console messenger:stats
 ```
 
-Valide também autenticação, operações essenciais e **Admin > Migrations**. Para
-rollback, restaure sempre o par correspondente de arquivos e banco; não combine
-snapshots de momentos diferentes.
+Confira ainda **Admin > Migrations**, login, agenda, e-mails, anexos e logs.
+Este repositório não executa automaticamente migrações manuais de anexos.
+
+Atualizar uma imagem `latest` não atualiza os arquivos de
+`volumes/suitecrm`; siga [UPGRADE.md](UPGRADE.md) para versões da aplicação.
+Não use `docker compose build` na produção como parte de um deploy comum.
+Builds locais exigem `docker-compose.build.yml` opt-in.
+
+## Backup e rollback
+
+Antes de atualizar a aplicação, valide um par consistente de backup:
+um dump do banco e o snapshot dos arquivos. Se uma atualização falhar,
+restaure **os dois juntos**. Alterar somente o volume ou só o banco causa
+inconsistências. Os scripts não armazenam credenciais de backup.

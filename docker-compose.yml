@@ -5,34 +5,38 @@ networks:
 services:
   php:
     image: ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
-    build:
-      context: .
-      dockerfile: .docker/php/Dockerfile
     restart: always
     ports:
       - "${HTTP_PORT:-80}:80"
     volumes:
       - ./volumes/suitecrm:/var/www/html
       - ~/.composer:/root/.composer
-    depends_on:
-      mysql:
-        condition: service_healthy
     environment:
       XDEBUG_CONFIG: ${XDEBUG_CONFIG:-off}
       TZ: ${TZ:-UTC}
     networks:
       - mysql
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1/"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
+
+  # This local database is for development and first-time installs only.
+  # Production may use the existing external database on the same network.
   mysql:
     image: mysql:8.4
+    profiles: ["dev-db"]
     restart: unless-stopped
     volumes:
       - ./volumes/mysql/dump:/docker-entrypoint-initdb.d
       - ./volumes/mysql/data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-suitecrm}
       MYSQL_USER: ${MYSQL_USER:-suitecrm}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s
@@ -43,9 +47,7 @@ services:
 
   messenger:
     image: ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
-    build:
-      context: .
-      dockerfile: .docker/php/Dockerfile
+    profiles: ["background"]
     restart: unless-stopped
     user: www-data
     command:
@@ -60,21 +62,19 @@ services:
     depends_on:
       php:
         condition: service_started
+    stop_grace_period: 30s
     networks:
       - mysql
-    profiles: ["background"]
 
   scheduler:
     image: ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
-    build:
-      context: .
-      dockerfile: .docker/php/Dockerfile
+    profiles: ["background"]
     restart: unless-stopped
     user: www-data
     command:
       - sh
-      - -c
-      - while true; do php -f public/legacy/cron.php; sleep 300; done
+      - -ec
+      - while :; do php bin/console schedulers:run --no-interaction; sleep 60; done
     volumes:
       - ./volumes/suitecrm:/var/www/html
     depends_on:
@@ -82,4 +82,3 @@ services:
         condition: service_started
     networks:
       - mysql
-    profiles: ["background"]

@@ -1,0 +1,14 @@
+# Explicit opt-in for local builds; the default Compose uses published images.
+services:
+  php:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+  messenger:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+  scheduler:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
