@@ -49,7 +49,11 @@ if [[ "$backup_confirmed" != true ]]; then
     exit 1
 fi
 
-docker compose ps --status running "$service" >/dev/null
+running_service="$(docker compose ps --status running --quiet "$service")"
+if [[ -z "$running_service" ]]; then
+    echo "Upgrade refused: SuiteCRM web container is not running." >&2
+    exit 1
+fi
 docker compose exec -T "$service" test -x bin/console
 
 if ! docker compose exec -T "$service" sh -c \
@@ -58,9 +62,17 @@ if ! docker compose exec -T "$service" sh -c \
     exit 1
 fi
 
-echo "Current application version:"
-docker compose exec -T "$service" php bin/console app:version:status || true
+current_version="$(docker compose exec -T --user www-data "$service" php bin/console suitecrm:version --no-interaction | tr -d '[:space:]')"
+if [[ ! "$current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Upgrade refused: SuiteCRM CLI returned an invalid installed version." >&2
+    exit 1
+fi
+echo "Current application version: ${current_version}"
 echo "Target application version: ${target_version}"
+if [[ "$current_version" == "$target_version" ]]; then
+    echo "Already at target version; no application upgrade is required."
+    exit 0
+fi
 
 package_dir="${volume_path}/tmp/package/upgrade"
 package_file="${package_dir}/${target_version}.zip"
@@ -77,11 +89,11 @@ docker compose exec -T --user root "$service" \
     chown -R www-data:www-data /var/www/html
 
 echo "Running the application upgrade..."
-docker compose exec -T "$service" php bin/console suitecrm:app:upgrade \
+docker compose exec -T --user www-data "$service" php bin/console suitecrm:app:upgrade \
     --no-interaction -t "$target_version"
 
 echo "Finalizing the application upgrade..."
-docker compose exec -T "$service" php bin/console suitecrm:app:upgrade-finalize \
+docker compose exec -T --user www-data "$service" php bin/console suitecrm:app:upgrade-finalize \
     --no-interaction -m merge -t "$target_version"
 
 docker compose exec -T --user root "$service" \
@@ -92,10 +104,14 @@ docker compose exec -T --user root "$service" \
 docker compose restart "$service"
 
 echo "Checking Doctrine migrations..."
-docker compose exec -T "$service" php bin/console doctrine:migrations:status --no-interaction
+docker compose exec -T --user www-data "$service" php bin/console doctrine:migrations:status --no-interaction
 
-echo "Installed application version:"
-docker compose exec -T "$service" php bin/console app:version:status
+installed_version="$(docker compose exec -T --user www-data "$service" php bin/console suitecrm:version --no-interaction | tr -d '[:space:]')"
+if [[ "$installed_version" != "$target_version" ]]; then
+    echo "Post-upgrade check failed: expected ${target_version}, got ${installed_version}." >&2
+    exit 1
+fi
+echo "Installed application version: ${installed_version}"
 
 cat <<'EOF'
 

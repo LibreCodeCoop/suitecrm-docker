@@ -10,7 +10,7 @@ arquivos da aplicação: o volume encobre o conteúdo incluído na imagem.
 
    ```bash
    cat SUITECRM_VERSION
-   docker compose exec php php bin/console app:version:status
+   docker compose exec -u www-data php php bin/console suitecrm:version
    ```
 
 2. Revise a [matriz de compatibilidade](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/),
@@ -70,7 +70,7 @@ SUITECRM_VOLUME_PATH=/caminho/persistente \
 ## Verificações posteriores
 
 ```bash
-docker compose exec php php bin/console app:version:status
+docker compose exec -u www-data php php bin/console suitecrm:version
 docker compose exec php php bin/console doctrine:migrations:status --no-interaction
 docker compose logs --since=10m php
 ```

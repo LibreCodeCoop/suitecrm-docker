@@ -6,3 +6,5 @@
 /backups/
 *.sql
 *.sql.gz
+__pycache__/
+*.pyc

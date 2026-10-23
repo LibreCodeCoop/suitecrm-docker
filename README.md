@@ -1,108 +1,105 @@
 # SuiteCRM Docker
 
-Ambiente Docker para SuiteCRM 8 com PHP 8.3, Apache e MySQL. A versão do
-SuiteCRM incluída na imagem é definida em `SUITECRM_VERSION`; atualmente,
-`v8.10.2`.
+Imagem e serviços Docker para SuiteCRM 8, PHP Apache e banco de desenvolvimento
+opcional. A versão do SuiteCRM está em `SUITECRM_VERSION` (hoje `v8.10.2`).
+A imagem publicada é
+`ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest`; a revisão e versão
+são registradas nos metadados OCI.
 
-O workflow publica somente:
+## Serviço e responsabilidades
 
-```text
-ghcr.io/librecodecoop/suitecrm-docker/suite-crm:latest
-```
+- `php`: PHP/Apache para a aplicação. A imagem é consumida diretamente.
+- `mysql`: banco apenas de desenvolvimento/instalação inicial (`dev-db`).
+  **Não** é iniciado por `docker compose up -d`.
+- `messenger`: consumidor `internal-async` como `www-data`, reinício automático.
+- `scheduler`: executa `bin/console schedulers:run` a cada 60 segundos como
+  `www-data`, com reinício em caso de falha.
 
-A versão permanece disponível no label OCI `org.opencontainers.image.version`.
-
-## Início rápido
-
-1. Prepare a configuração local:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Preencha `MYSQL_ROOT_PASSWORD` e `MYSQL_PASSWORD` com valores aleatórios.
-   O arquivo `.env` não é versionado.
-3. Execute a instalação interativa:
-
-   ```bash
-   ./install.sh
-   ```
-
-O instalador do SuiteCRM solicitará as credenciais do banco e do administrador
-sem que o repositório defina senhas padrão.
-
-## Serviços
-
-- `php`: PHP 8.3, Apache e extensões necessárias ao SuiteCRM.
-- `mysql`: MySQL 8.4 para desenvolvimento; a porta não é publicada no host.
-- `messenger`: worker obrigatório para tarefas assíncronas do SuiteCRM 8.10+.
-- `scheduler`: executa `public/legacy/cron.php` a cada cinco minutos.
-
-Os dois serviços de background usam um profile e devem ser iniciados depois da
-instalação:
+Os processos de background pertencem ao profile `background`; para ativá-los,
+use explicitamente:
 
 ```bash
-docker compose --profile background up -d
-```
-
-Em produção, o banco pode ser externo. Use um override local para remover o
-serviço `mysql` e conectar `php`, `messenger` e `scheduler` à rede apropriada;
-não versione nomes, endereços ou credenciais da infraestrutura.
-
-## Persistência e atualizações
-
-`./volumes/suitecrm` é montado em `/var/www/html`. Por isso, trocar ou baixar a
-imagem `latest` não altera uma instalação já existente nesse volume.
-
-Consulte [UPGRADE.md](UPGRADE.md) antes de qualquer atualização. O fluxo exige
-backup do banco e dos arquivos e executa tanto `suitecrm:app:upgrade` quanto
-`suitecrm:app:upgrade-finalize`.
-
-## Comandos úteis
-
-```bash
+docker compose --profile background up -d php messenger
+# Ative scheduler só na janela de migração, após desativar o cron antigo.
 docker compose --profile background ps
-docker compose logs -f php
-docker compose exec php php bin/console app:version:status
-docker compose exec php php bin/console cache:clear
-docker compose exec php php bin/console doctrine:migrations:status --no-interaction
-docker compose exec mysql sh -c 'mysql -u"$MYSQL_USER" -p "$MYSQL_DATABASE"'
+docker compose --profile background logs --tail=100 messenger
 ```
 
-Evite `docker exec` com nomes fixos de containers; os nomes podem variar entre
-projetos. Execute cron, worker e comandos da aplicação como `www-data`.
+Em produção, conecte os serviços ao banco **já existente** e use a mesma pasta
+persistente montada em `/var/www/html`. Não inicialize o banco de desenvolvimento
+em produção. Consulte [DEPLOY.md](DEPLOY.md) antes de ativar os serviços: o
+agendador externo antigo deve ser desativado **somente após** o novo serviço
+ter sido validado, para evitar duplicidade.
 
-## Desenvolvimento
-
-Para alterar o runtime localmente:
+## Instalação de desenvolvimento
 
 ```bash
-docker compose build php
-docker compose up -d php
+cp .env.example .env
+# Preencha os dois segredos MYSQL_*; nunca os versione.
+./install.sh
 ```
 
-O Xdebug fica desabilitado por padrão. Configure `XDEBUG_CONFIG` no `.env` e
-ajuste `.docker/php/config/php.ini` somente no ambiente de desenvolvimento.
+O instalador espera o MySQL de desenvolvimento ficar saudável, inicia a aplicação
+e depois sobe os serviços `messenger` e `scheduler`. Para construir a imagem
+localmente, use o override **explícito**:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml build php
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d php
+```
+
+O Compose padrão não possui instruções `build`: a implantação usa apenas as
+imagens publicadas e verificadas.
+
+## Atualização e configuração de PHP
+
+A imagem usa PHP 8.3.36, compatível com SuiteCRM 8.10. A [matriz oficial](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/)
+lista PHP 8.2, 8.3 e 8.4 para esta versão; PHP 8.5 não está listado.
+Dependabot propõe automaticamente patches da linha selecionada, mas não
+mudanças de série PHP sem revisão explícita da compatibilidade.
+
+Limites configurados na imagem: `memory_limit=512M`,
+`upload_max_filesize=30M`, `post_max_size=36M`,
+`display_errors=off`, `log_errors=On`. Logs não devem conter segredos.
+
+O diretório `volumes/suitecrm` é persistente: atualizar a imagem **não**
+atualiza automaticamente os arquivos já instalados. Leia
+[UPGRADE.md](UPGRADE.md) para o procedimento de versão e backup.
+
+## Comandos de consulta
+
+```bash
+docker compose exec -u www-data php php bin/console suitecrm:version
+docker compose exec -u www-data php php bin/console doctrine:migrations:status --no-interaction
+docker compose --profile background exec messenger php bin/console messenger:stats --no-interaction
+docker compose --profile background logs --tail=100 scheduler messenger
+```
+
+Reveja **Admin > Migrations** antes de disparar migrações manuais; elas podem
+exigir um Messenger funcional. Use [DEPLOY.md](DEPLOY.md) para verificações
+de produção e [UPGRADE.md](UPGRADE.md) para rollback.
+
+## Testes e CI
+
+```bash
+bash -n install.sh scripts/upgrade-suitecrm.sh .docker/php/scripts/entrypoint.sh
+python3 scripts/check-runtime-compatibility.py
+python3 -m unittest discover -s tests -v
+```
+
+Os testes de scripts usam comandos simulados, sem tocar instalações reais.
+O CI também constrói uma imagem, verifica PHP/extensões/limites e **só depois**
+publica no GHCR. Um build que passa não substitui testes de migração em
+homologação com dados sintéticos.
 
 ## Segurança
 
-- Nunca versione `.env`, `.env.local`, dumps, backups ou arquivos de configuração
-  da instalação.
-- Não coloque credenciais em argumentos documentados ou no Compose.
-- Não publique a porta do banco por padrão.
-- Use HTTPS, backups testados e credenciais exclusivas em produção.
-- Trate exemplos de produção como arquivos locais ou templates com placeholders.
+Nunca versione `.env`, bancos, backups ou configurações locais do servidor.
+Não implante operações SQL de migração no entrypoint da imagem.
+Aplicações comerciais não podem ser modificadas apenas pela inicialização
+dos serviços.
 
-## Documentação
-
-- [Deploy genérico](DEPLOY.md)
-- [Atualização](UPGRADE.md)
-- [Matriz oficial de compatibilidade](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/)
-- [Guia oficial de instalação](https://docs.suitecrm.com/8.x/admin/installation-guide/)
-- [Guia oficial de upgrade](https://docs.suitecrm.com/8.x/admin/upgrading/)
-- [Messenger Worker](https://docs.suitecrm.com/8.x/admin/async-tasks/messenger-setup/)
-- [Traduções](https://crowdin.com/project/suitecrmtranslations)
-
-## Licença
-
-SuiteCRM é distribuído sob AGPLv3. Consulte `LICENSE`.
+Licença: AGPLv3. Documentação oficial:
+[instalação](https://docs.suitecrm.com/8.x/admin/installation-guide/),
+[scheduler](https://docs.suitecrm.com/8.x/admin/administration-panel/schedulers/),
+[Messenger](https://docs.suitecrm.com/8.x/admin/async-tasks/messenger-setup/).
