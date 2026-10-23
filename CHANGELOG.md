@@ -9,9 +9,13 @@ All notable changes to this project will be documented in this file.
 - Safe upgrade script with mandatory backup confirmation and post-upgrade checks.
 - Optional Messenger worker and scheduler services under the `background` profile.
 - Generic deployment and upgrade documentation without infrastructure credentials.
-- Compose and shell syntax validation in CI.
+- Bats regression tests for installation/upgrade scripts, Compose behavior and the
+  built image, executed in CI before publication.
 
 ### Changed
+- PHP runtime moved to the latest supported PHP 8.4 series, with Dependabot
+  responsible for patch and digest updates; unsupported series are reviewed
+  separately instead of hardcoding PHP versions into tests.
 - SuiteCRM target version updated to 8.10.2.
 - Published image now uses the stable `suite-crm:latest` name; the application
   version remains available as an OCI label.

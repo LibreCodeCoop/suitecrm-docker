@@ -53,10 +53,12 @@ imagens publicadas e verificadas.
 
 ## Atualização e configuração de PHP
 
-A imagem usa PHP 8.3.36, compatível com SuiteCRM 8.10. A [matriz oficial](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/)
-lista PHP 8.2, 8.3 e 8.4 para esta versão; PHP 8.5 não está listado.
-Dependabot propõe automaticamente patches da linha selecionada, mas não
-mudanças de série PHP sem revisão explícita da compatibilidade.
+A imagem usa PHP 8.4, a linha mais recente documentada como compatível com
+SuiteCRM 8.10 na [matriz oficial](https://docs.suitecrm.com/8.x/admin/compatibility-matrix/).
+A atualização de correções de segurança é feita pelo **Dependabot**: a
+versão de patch e o digest ficam no Dockerfile, e os PRs de atualização passam
+pelos testes Bats e pelo build do CI. Mudanças de linha PHP dependem de
+revisão da matriz; não é necessário manter números de versão em testes.
 
 Limites configurados na imagem: `memory_limit=512M`,
 `upload_max_filesize=30M`, `post_max_size=36M`,
@@ -83,14 +85,16 @@ de produção e [UPGRADE.md](UPGRADE.md) para rollback.
 
 ```bash
 bash -n install.sh scripts/upgrade-suitecrm.sh .docker/php/scripts/entrypoint.sh
-python3 scripts/check-runtime-compatibility.py
-python3 -m unittest discover -s tests -v
+bats tests/scripts.bats tests/compose.bats
+# Após construir a imagem local (somente ambiente de teste):
+SUITECRM_TEST_IMAGE=suitecrm-ci:verify bats tests/image.bats
 ```
 
-Os testes de scripts usam comandos simulados, sem tocar instalações reais.
-O CI também constrói uma imagem, verifica PHP/extensões/limites e **só depois**
-publica no GHCR. Um build que passa não substitui testes de migração em
-homologação com dados sintéticos.
+Os testes Bats exercitam os scripts com comandos simulados, sem tocar
+instalações reais. Os testes de imagem usam contêineres descartáveis sem
+volumes de produção. O CI constrói a imagem, verifica extensões/limites e
+comportamento do entrypoint e **só depois** publica no GHCR. Um build bem-
+sucedido não substitui testes de migração em homologação com dados sintéticos.
 
 ## Segurança
 

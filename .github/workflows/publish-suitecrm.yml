@@ -37,12 +37,19 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Validate scripts and runtime compatibility policy
+      - name: Set up Bats
+        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # v4.0.0
+        with:
+          support-install: false
+          assert-install: false
+          detik-install: false
+          file-install: false
+
+      - name: Test scripts and Compose
         shell: bash
         run: |
           bash -n install.sh scripts/upgrade-suitecrm.sh .docker/php/scripts/entrypoint.sh
-          python3 scripts/check-runtime-compatibility.py
-          python3 -m unittest discover -s tests -v
+          bats tests/scripts.bats tests/compose.bats
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -59,52 +66,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Smoke-test built PHP runtime and packaged SuiteCRM
-        shell: bash
-        run: |
-          docker run --rm --entrypoint php suitecrm-ci:verify -r '
-            $required = ["apcu", "gd", "imap", "intl", "ldap", "mysqli", "pdo_mysql", "soap", "zip"];
-            foreach ($required as $ext) {
-              if (!extension_loaded($ext)) {
-                fwrite(STDERR, "Missing PHP extension: $ext\n");
-                exit(1);
-              }
-            }
-            if (ini_get("memory_limit") !== "512M") {
-              fwrite(STDERR, "memory_limit does not satisfy image policy\n");
-              exit(1);
-            }
-            if (ini_get("post_max_size") !== "36M" || ini_get("upload_max_filesize") !== "30M") {
-              fwrite(STDERR, "Invalid POST/upload limits\n");
-              exit(1);
-            }
-            if (ini_get("log_errors") !== "1" || ini_get("display_errors") !== "") {
-              fwrite(STDERR, "Invalid error reporting policy\n");
-              exit(1);
-            }
-            echo "PHP runtime smoke check OK\n";
-          '
-          expected="$(tr -d '[:space:]' < SUITECRM_VERSION)"
-          installed="$(docker run --rm --entrypoint cat suitecrm-ci:verify /etc/suitecrm-version)"
-          test "$installed" = "$expected"
-          docker run --rm --entrypoint test suitecrm-ci:verify -f /opt/suitecrm/VERSION
-          # Exercise the real entrypoint only in a disposable container.
-          # This must never use a bind mount or any production volume.
-          docker run --rm --entrypoint bash suitecrm-ci:verify -ec '
-            scratch="$(mktemp -d)"
-            cd "$scratch"
-            /var/www/scripts/entrypoint.sh true
-            test -f VERSION
-            test -x bin/console
-            test "$(stat -c %U VERSION)" = www-data
-          '
-          docker run --rm --entrypoint bash suitecrm-ci:verify -ec '
-            scratch="$(mktemp -d)"
-            cd "$scratch"
-            touch LICENSE.txt
-            /var/www/scripts/entrypoint.sh true
-            test ! -e VERSION
-          '
+      - name: Test packaged application and PHP runtime
+        env:
+          SUITECRM_TEST_IMAGE: suitecrm-ci:verify
+        run: bats tests/image.bats
 
       - name: Log in to Container registry
         if: github.event_name != 'pull_request'
