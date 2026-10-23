@@ -103,7 +103,7 @@ Não implante operações SQL de migração no entrypoint da imagem.
 Aplicações comerciais não podem ser modificadas apenas pela inicialização
 dos serviços.
 
-Licença: AGPLv3. Documentação oficial:
+Documentação oficial:
 [instalação](https://docs.suitecrm.com/8.x/admin/installation-guide/),
 [scheduler](https://docs.suitecrm.com/8.x/admin/administration-panel/schedulers/),
 [Messenger](https://docs.suitecrm.com/8.x/admin/async-tasks/messenger-setup/).
