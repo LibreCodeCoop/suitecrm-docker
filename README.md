@@ -85,7 +85,7 @@ de produção e [UPGRADE.md](UPGRADE.md) para rollback.
 
 ```bash
 bash -n install.sh scripts/upgrade-suitecrm.sh .docker/php/scripts/entrypoint.sh
-bats tests/scripts.bats tests/compose.bats
+bats tests/scripts.bats tests/compose.bats tests/action-pins.bats
 # Após construir a imagem local (somente ambiente de teste):
 SUITECRM_TEST_IMAGE=suitecrm-ci:verify bats tests/image.bats
 ```
