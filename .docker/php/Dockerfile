@@ -1,4 +1,4 @@
-FROM php:8.4.27-apache@sha256:c6527b06c772a2c3cae648ce58c23a2a12ed2fed41cdfb0619ea64be008cc601
+FROM php:8.4.28-apache@sha256:3550aedd1c7bdfe26283c7b1550ef76509e6c2b1284aef814e6f2e325b7c9688
 
 
 
